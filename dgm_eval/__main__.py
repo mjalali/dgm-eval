@@ -48,7 +48,8 @@ parser.add_argument('--test_path', type=str, default=None,
 
 parser.add_argument('--metrics', type=str, nargs='+', default=['fd', 'fd-infinity', 'kd', 'prdc',
                                                                'is', 'authpct', 'ct', 'ct_test', 'ct_modified', 
-                                                               'fls', 'fls_overfit', 'vendi', 'sw_approx'],
+                                                               'fls', 'fls_overfit', 'vendi', 'sw_approx',
+                                                               'vendi-alpha', 'rke'],
                     help="metrics to compute")
 
 parser.add_argument('-ckpt', '--checkpoint', type=str, default=None,
@@ -86,6 +87,12 @@ parser.add_argument('--clean_resize', action='store_true',
 
 parser.add_argument('--depth', type=int, default=0,
                     help='Negative depth for internal layers, positive 1 for after projection head.')
+
+parser.add_argument('--kernel', type=str, default='linear',
+                    help='Kernel used for Vendi/RKE scores', choices=['linear', 'polynomial', 'gaussian'])
+
+parser.add_argument('--kernel-bandwidth', type=float, default=None,
+                    help='Kernel bandwidth for Gaussian Kernel')
 
 
 def get_device_and_num_workers(device, num_workers):
@@ -192,6 +199,16 @@ def compute_scores(args, reps, test_reps, labels=None):
         # scores['vendi'] = compute_vendi_score(reps[1])
         vendi_scores = compute_per_class_vendi_scores(reps[1], labels)
         scores['mean vendi per class'] = vendi_scores.mean()
+
+    if 'vendi-alpha' in args.metrics:
+        print("Calculating Vendi of all data", file=sys.stderr)
+        scores['vendi-all'] = compute_vendi_alpha_score(reps[1], q=1, kernel=args.kernel,
+                                                        kernel_bandwidth=args.kernel_bandwidth)
+
+    if 'rke' in args.metrics:
+        print("Calculating RKE of all data", file=sys.stderr)
+        scores['RKE'] = compute_vendi_alpha_score(reps[1], q=2, kernel=args.kernel,
+                                                        kernel_bandwidth=args.kernel_bandwidth)
 
     if 'authpct' in args.metrics:
         print("Computing authpct \n", file=sys.stderr)
